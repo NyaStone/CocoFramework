@@ -1,0 +1,19 @@
+{
+  "name": "cocoframework",
+  "version": "0.0.1",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "test": "bash ./test.sh"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NyaStone/CocoFramework.git"
+  },
+  "author": "Pierre Lenertz",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/NyaStone/CocoFramework/issues"
+  },
+  "homepage": "https://github.com/NyaStone/CocoFramework#readme"
+}
