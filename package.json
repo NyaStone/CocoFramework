@@ -1,14 +1,14 @@
 {
-  "name": "cocoframework",
+  "name": "cocoframework-classes",
   "version": "0.0.1",
   "description": "",
-  "main": "main.js",
+  "main": "__main.js",
   "scripts": {
     "test": "bash ./test.sh"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/NyaStone/CocoFramework.git"
+    "url": "git+https://github.com/NyaStone/CocoFramework/tree/classes"
   },
   "author": "Pierre Lenertz",
   "license": "ISC",
