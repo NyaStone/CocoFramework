@@ -1,0 +1,11 @@
+{
+    "discord": {
+        "token": "PUT DISCORD BOT TOKEN HERE"
+    },
+    "database": {
+        "databasename": "PUT THE NAME OF DATABASE HERE",
+        "username": "PUT THE USERNAME FOR THE DATABASE LOGIN",
+        "password": "PUT THE PASSWORD FOR THE DATABASE LOGIN",
+        "address": "PUT THE HOSTING ADDRESS OF THE DATABASE SERVER"
+    }
+}
