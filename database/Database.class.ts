@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { Sequelize } from 'sequelize';
+import { Sequelize, SyncOptions } from 'sequelize';
 
 import { TableClass } from './TableClass.class';
 import * as config from '../config.json';
@@ -26,6 +26,7 @@ export class Database {
         /** @todo choose database setup for sequelize ORM */
         this._sequelize = new Sequelize(config.database.databasename, config.database.username, config.database.password, {
             host: config.database.address,
+            port: config.database.port,
             dialect: 'mysql'
         }); 
 
@@ -61,9 +62,6 @@ export class Database {
         this._singleton._table_classes.forEach((tableClass : typeof TableClass) : void => {
             tableClass.init_associations();
         });
-        // syncing the model with the DB
-        /** @todo only here for test purposes, remove later*/
-        this._singleton._sequelize.sync({force: true});
     }
 
     private rescursive_import_classes( path : string ) : void {
@@ -104,4 +102,8 @@ export class Database {
         return this._singleton;
     } 
     
+
+    sync(options?: SyncOptions):Promise<Sequelize> {
+        return this._sequelize.sync(options);
+    }
 }

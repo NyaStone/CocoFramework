@@ -1,4 +1,4 @@
-import { Model, DataType, Sequelize, ModelAttributes, DataTypes, ModelOptions} from "sequelize";
+import { Model, DataType, Sequelize, ModelAttributes, DataTypes, ModelOptions, Op} from "sequelize";
 import { InstanceNotFoundError } from "./Errors/InstanceNotFoundError.class";
 import { syncUp } from "../implementations/syncUp.funct";
 import { InstanceNotBuiltError } from "./Errors/InstanceNotBuiltError.class";
@@ -112,13 +112,13 @@ export abstract class TableClass {
                 Object.defineProperty(this.prototype, field, {
                     get: function (this: TableClass) : TableClass | null {
                         if (this._databaseInstance && this[`_cached_association_${field}`]) return this[`_cached_association_${field}`];
-                        if (this._databaseInstance) {
-                            const ParentClass: typeof TableClass = this.constructor as typeof TableClass;
-                            const childUUID: string = this._databaseInstance.get(field) as string;
-                            const ChildType: typeof ConcreteTableClass = ParentClass.fields[field] as typeof ConcreteTableClass;
-                            this[`_cached_association_${field}`] = ChildType.getByUUID(childUUID);
-                            return this[`_cached_association_${field}`];
-                        }
+                        // if (this._databaseInstance) {
+                        //     const ParentClass: typeof TableClass = this.constructor as typeof TableClass;
+                        //     const childUUID: string = this._databaseInstance.get(field) as string;
+                        //     const ChildType: typeof ConcreteTableClass = ParentClass.fields[field] as typeof ConcreteTableClass;
+                        //     this[`_cached_association_${field}`] = ChildType.getByUUID(childUUID);
+                        //     return this[`_cached_association_${field}`];
+                        // }
                         if (this[`_prebuild_${field}`])
                             return this[`_prebuild_${field}`] as TableClass;
                         return null;
@@ -143,6 +143,7 @@ export abstract class TableClass {
         });
 
         this._DatabaseModel = sequelize.define(this.name, modelAttributes, modelOptions);
+        console.log(this._DatabaseModel);
     }
 
     static init_associations(): void {
@@ -159,10 +160,7 @@ export abstract class TableClass {
                     foreignKey: field,
                     as: field
                 });
-                CurrentModel.belongsTo(AssociatedModel, {
-                    foreignKey: field,
-                    as: field
-                });
+                CurrentModel.belongsTo(AssociatedModel);
             }
         });
     }
@@ -265,7 +263,7 @@ export abstract class TableClass {
                 }; 
                 if (fieldValue instanceof TableClass) {
                     // in case of a nested tableclass, forward it's database instance to the identifier value
-                    identifierValue[field] = (fieldValue as TableClass)._databaseInstance;
+                    identifierValue[field] = (fieldValue as TableClass)._databaseInstance.get('uuid');
                 }
                 else {
                     // in other cases forward the value dirrectly
@@ -273,7 +271,8 @@ export abstract class TableClass {
                 }
             });
             // trying to look up the instance
-            const dbData = syncUp(ParentClass.get_Model().findOne({where: identifierValue}));
+            const whereClose: any = {where: identifierValue};
+            const dbData = syncUp(ParentClass.get_Model().findOne(whereClose));
             // check if the instance has been found
             if (!(Array.isArray(dbData) && dbData.length > 0 && dbData[0] instanceof Model)) {
                 // if not found create a new database entry for this instance
@@ -282,6 +281,7 @@ export abstract class TableClass {
             }
             // building from the found db entry
             this._databaseInstance = dbData[0];
+            return;
         }
         // if neither UUID, Identifier, or passed database instance is present, built a new instance  
         this.newBuild();
@@ -298,8 +298,13 @@ export abstract class TableClass {
         const thisFields: {[index:string]: any} = {};
         const expectedFields: string[] = Object.keys(ParentClass.fields);
         expectedFields.forEach(field => {
-            if ((this as any)[field]) {
-                thisFields[field] = (this as any)[field];
+            const fieldVal = (this as any)[field];
+            if (fieldVal && fieldVal instanceof TableClass) {
+                thisFields[field] = fieldVal._databaseInstance.get('uuid');
+                this[`_cached_association_${field}`] = fieldVal;
+            }
+            else if (fieldVal) {
+                thisFields[field] = fieldVal;
             }
             else {
                 thisFields[field] = null;
@@ -333,6 +338,17 @@ export abstract class TableClass {
      */
     public lock():void {
         this._lockedState = true;
+    }
+
+    /**
+     * Method to reaload an instance from database
+     * the longer an instance is alive the greater the chance of concurency errors,
+     * reloading the insance ensures it is fresh from database
+     * @returns Promise of the same instance for promise chaning
+     */
+    public async fetch(): Promise<TableClass> {
+        await this._databaseInstance.reload();
+        return this;
     }
 
     /**
@@ -370,12 +386,12 @@ export abstract class TableClass {
     /**
      * The UUID generated by sequelize for an instance
      */
-    get uuid() : string {
+    get uuid() : string | null {
         if (this._databaseInstance)
             return this._databaseInstance.get('uuid') as string;
         if (this._prebuild_uuid)
             return this._prebuild_uuid as string;
-        throw new InstanceNotBuiltError();
+        return null;
     }
 
 
