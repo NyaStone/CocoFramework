@@ -1,0 +1,1 @@
+export abstract class AbstractWarningError extends Error {}
