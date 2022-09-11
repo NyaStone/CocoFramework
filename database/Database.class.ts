@@ -56,6 +56,7 @@ export class Database {
         this._singleton.rescursive_import_classes(project_path);
         // initializing all the models for the imported classes
         this._singleton._table_classes.forEach((tableClass : typeof TableClass) : void => {
+            console.log(`init the ${tableClass.name}`)
             tableClass.init_Model(this._singleton._sequelize);
         });
         // Creating the table associations once all models are created

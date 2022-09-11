@@ -1,9 +1,7 @@
-import { Model, DataType, Sequelize, ModelAttributes, DataTypes, ModelOptions, Op} from "sequelize";
+import { Model, DataType, Sequelize, ModelAttributes, DataTypes, ModelOptions, Op, where} from "sequelize";
 import { InstanceNotFoundError } from "./Errors/InstanceNotFoundError.class";
-import { syncUp } from "../implementations/syncUp.funct";
 import { InstanceNotBuiltError } from "./Errors/InstanceNotBuiltError.class";
-import { InstanceAlreadyBuiltError } from "./Errors/InstanceAlreadyBuiltError";
-
+import { InstanceAlreadyBuiltError } from "./Errors/InstanceAlreadyBuiltError.class";
 
 /**
  * The model class is abstract, for some reason variables declared
@@ -12,14 +10,15 @@ import { InstanceAlreadyBuiltError } from "./Errors/InstanceAlreadyBuiltError";
  * That is why we create a dummy class for the TS compiler to think
  * that the type is concrete
  */
-class ConcreteModel extends Model {};
+class ConcreteModel extends Model { };
 
-// type of a constructor for typescript to recognize classes
-type Class<T> = new (...args: any[]) => T;
 
 export abstract class TableClass {
-
-    constructor(...params: any[]) {}
+    constructor(...params: any[]) {
+        // locking the instance, unlockins is to be done when ready to search for a
+        // database entry
+        this.lock();
+    }
 
     /**
      * Array mapping the instance keys that need to be saved to their datatype
@@ -31,6 +30,9 @@ export abstract class TableClass {
      * this means in the database a combined set of these fields bust have a unique value
      */
     static readonly identifier : string[];
+
+
+
 
     /**
      * Dynamically generated sequelize database table model
@@ -75,11 +77,11 @@ export abstract class TableClass {
                 // adds/modify the properties to be stored in the _databaseInstance a getter for this propert
                 Object.defineProperty(this.prototype, field, {
                     get: function (this: TableClass) : unknown {
-                        if (this._databaseInstance)
-                            return this._databaseInstance.get(field);
-                        if (this[`_prebuild_${field}`])
-                            return this[`_prebuild_${field}`];
-                        return null;
+                        if (this._databaseInstance){
+                            return this._databaseInstance.get(field)};
+                        if (this._prebuild.has(field))
+                            return this._prebuild.get(field);
+                        return undefined;
                     },
                     set: function(this: TableClass, val : any) : void {
                         if (this._databaseInstance) {
@@ -91,8 +93,7 @@ export abstract class TableClass {
                             if (!this.isLocked()) this._databaseInstance.save();
                             return;
                         }
-                        this[`_prebuild_${field}`] = val;
-                        if (!this.isLocked()) this.build();
+                        this._prebuild.set(field, val);
                     }
                 }); 
             }
@@ -110,40 +111,45 @@ export abstract class TableClass {
 
                 // preparing the accessessers for the associated instances
                 Object.defineProperty(this.prototype, field, {
-                    get: function (this: TableClass) : TableClass | null {
-                        if (this._databaseInstance && this[`_cached_association_${field}`]) return this[`_cached_association_${field}`];
-                        // if (this._databaseInstance) {
-                        //     const ParentClass: typeof TableClass = this.constructor as typeof TableClass;
-                        //     const childUUID: string = this._databaseInstance.get(field) as string;
-                        //     const ChildType: typeof ConcreteTableClass = ParentClass.fields[field] as typeof ConcreteTableClass;
-                        //     this[`_cached_association_${field}`] = ChildType.getByUUID(childUUID);
-                        //     return this[`_cached_association_${field}`];
-                        // }
-                        if (this[`_prebuild_${field}`])
-                            return this[`_prebuild_${field}`] as TableClass;
-                        return null;
+                    get: function (this: TableClass) : TableClass | undefined {
+                        // if the value is cached, return cache
+                        if (this._cached_associations.has(field))
+                            return this._cached_associations.get(field);
+                        // if the instance has beed linked to database,
+                        // lookup, cache and return the instance
+                        if (this._databaseInstance) {
+                            const ParentClass: typeof TableClass = this.constructor as typeof TableClass;
+                            const childUUID: string | null = this._databaseInstance.get(field) as string | null;
+                            if (!childUUID) return;
+                            const ChildClass: typeof ConcreteTableClass = ParentClass.fields[field] as typeof ConcreteTableClass;
+                            const val = ChildClass.getByUUID(childUUID);
+                            this._cached_associations.set(field, val);
+                            return val;
+                        }
+                        // else return undefined
+                        if (this.isLocked()) throw new InstanceNotBuiltError(`Instance has never been built with a database entry`);
                     },
                     set: function(this: TableClass, val : TableClass) : void {
-                        if (this.isLocked()) {
-                            this[`_prebuild_${field}`] = val;
-                            return;
-                        }
-                        const associatedDBInstance: Model = val._databaseInstance;
-                        // updifing the database instance, since the getter gets the value from there it should be synchronously updated
-                        this._databaseInstance.set(field, associatedDBInstance);
+                        
+                        let dbVal: string | null = null;
+                        if (val && val.uuid) dbVal = val.uuid;
+                        
                         // cache the reference of this associated instance for the next time it is read
-                        this[`_cached_association_${field}`] = val;
-                        // saving the instace in database, this is done asynchronously for performance
-                        // lots off save calls will occur but the important is that the alive instance during
-                        // runntime will be up to date.
-                        this._databaseInstance.save();
+                        this._cached_associations.set(field, val);
+                        // updifing the database instance, since the getter gets the value from there it should be synchronously updated
+                        if (!this.isLocked()) {
+                            this._databaseInstance.set(field, dbVal);
+                            // saving the instace in database, this is done asynchronously for performance
+                            // lots off save calls will occur but the important is that the alive instance during
+                            // runntime will be up to date.
+                            this._databaseInstance.save();
+                        }
                     }
                 }); 
             }
         });
 
         this._DatabaseModel = sequelize.define(this.name, modelAttributes, modelOptions);
-        console.log(this._DatabaseModel);
     }
 
     static init_associations(): void {
@@ -158,9 +164,10 @@ export abstract class TableClass {
                 const CurrentModel : typeof ConcreteModel = this.get_Model();
                 AssociatedModel.hasMany(CurrentModel, {
                     foreignKey: field,
-                    as: field
+                    as: `fk_${field}`,
+                    onDelete: 'SET NULL'
                 });
-                CurrentModel.belongsTo(AssociatedModel);
+                CurrentModel.belongsTo(AssociatedModel, {onDelete: 'SET NULL'});
             }
         });
     }
@@ -171,67 +178,75 @@ export abstract class TableClass {
     } 
     
     /**
-     * Broad factory method used to create new instances instead of using the 
+     * Broad factory method used to create new instances instead of using the constructor
      * @param fields 
      * @returns A promise that resolves with the created instance
      * @todo Proper typescrpt typing
      */
-    static async create(this: typeof ConcreteTableClass, fields: {[oprtName: string]: any}, ...constructorParams: any[]): Promise<TableClass> {
-        // getting the list of gotten fields
-        const gottenfieldNames: string[] = Object.keys(fields);
-        const validfieldNames: string[] = Object.keys(this.fields)
-        const constructionData: any = {};
-        const associatedInstances: {[index:string]:TableClass} = {};
-        gottenfieldNames.forEach((field:string):void => {
-            // checking if the gotten field is intended
-            if (!validfieldNames.includes(field)) throw new Error(`${field} is not a field in the ${this.name} TableClass`);
-            // checking the expected type for the 
-            const FieldType = this.fields[field];
-            if (TableClass.isPrototypeOf(FieldType as object)) {
-                // awaiting an instance of a class, we need to forward it's UUID
-                // checking if we got an instance of the right type
-                if (!(fields[field] instanceof (FieldType as typeof TableClass))) throw new Error(`Gotten instance for the ${field} field was of wrong type`);
-                // getting the database instance that corresponds
-                constructionData[field] = (fields[field] as TableClass)._databaseInstance;
-                associatedInstances[field] = fields[field];
-            }
-            else {
-                // passing the raw data on
-                constructionData[field] = fields[field];
-            }
-        });
-        // Creating a database instace 
-        const dbInstance : Model = this._DatabaseModel.build(constructionData);
-        // saving of the instance is done asynchronously as we already have the data during runtime
-        dbInstance.save();
-        // returnining a new instance of this using the instance as data
-        const newInstance : TableClass = new this(...constructorParams);
-        // injecting the database instance into the new instance
-        newInstance.build(dbInstance);
+    // static async create(this: typeof ConcreteTableClass, fields: {[oprtName: string]: any}, ...constructorParams: any[]): Promise<TableClass> {
+    //     // getting the list of gotten fields
+    //     const gottenfieldNames: string[] = Object.keys(fields);
+    //     const validfieldNames: string[] = Object.keys(this.fields)
+    //     const constructionData: any = {};
+    //     const associatedInstances: {[index:string]:TableClass} = {};
+    //     gottenfieldNames.forEach((field:string):void => {
+    //         // checking if the gotten field is intended
+    //         if (!validfieldNames.includes(field)) throw new Error(`${field} is not a field in the ${this.name} TableClass`);
+    //         // checking the expected type for the 
+    //         const FieldType = this.fields[field];
+    //         if (TableClass.isPrototypeOf(FieldType as object)) {
+    //             // awaiting an instance of a class, we need to forward it's UUID
+    //             // checking if we got an instance of the right type
+    //             if (!(fields[field] instanceof (FieldType as typeof TableClass))) throw new Error(`Gotten instance for the ${field} field was of wrong type`);
+    //             // getting the database instance that corresponds
+    //             constructionData[field] = (fields[field] as TableClass)._databaseInstance;
+    //             associatedInstances[field] = fields[field];
+    //         }
+    //         else {
+    //             // passing the raw data on
+    //             constructionData[field] = fields[field];
+    //         }
+    //     });
+    //     // Creating a database instace 
+    //     const dbInstance : Model = this._DatabaseModel.build(constructionData);
+    //     // saving of the instance is done asynchronously as we already have the data during runtime
+    //     dbInstance.save();
+    //     // returnining a new instance of this using the instance as data
+    //     const newInstance : TableClass = new this(...constructorParams);
+    //     // injecting the database instance into the new instance
+    //     newInstance.build(dbInstance);
         
-        return newInstance;
-    }
+    //     return newInstance;
+    // }
 
     /**
-     * Factory methof yo get a saved instance from it's unique uuid
+     * Factory method to get a saved instance from it's unique uuid
      * @param uuid unique identifier of the instance 
      * @param constructionData extra parameters that may need to be forwarded to the constructor 
-     * @todo Better error handling using te InstanceNotFoundError class
      */
     static getByUUID(this: typeof ConcreteTableClass, uuid: string, ...constructionData: any[]): TableClass {
         // building a new dummy instance
         const newInstance: TableClass = new this(...constructionData);
-        // locking the instance to delay the build sequence after data injection
-        newInstance.lock();
-        // injecting the UUID and unlock the instance so it can get built
-        newInstance._prebuild_uuid = uuid;
-        // unlocking the instance to start the build
-        newInstance.unlock();
-
+        // injecting the UUID
+        newInstance._prebuild.set('uuid', uuid);
+         newInstance.unlock()
         return newInstance;
     }
 
-    private build(databaseInstance?: Model):void {
+    /**
+     * These fields contain the values that we might be using for a lookup
+     * in the database during the build process
+     */
+    public _prebuild: Map<string, unknown> = new Map();
+
+     /**
+      * Cached instances of the associated TableClasses
+      * They get cached once they are called and looked up for the first time
+      */
+    public _cached_associations: Map<string, TableClass> = new Map();
+    
+
+    public async build(databaseInstance?: Model) {
         // checking if instance is already buit
         if (this._databaseInstance) {
             throw new InstanceAlreadyBuiltError();
@@ -239,14 +254,14 @@ export abstract class TableClass {
         // if the database instance has been passed, build from there
         if (databaseInstance) {
             this._databaseInstance = databaseInstance;
-            return;
+            return this;
         }
         // checking if the uuid has already been defined
         if (this.uuid) {
-            const dbData = syncUp((this.constructor as typeof TableClass).get_Model().findByPk(this.uuid));
-            if (!(dbData.length > 0 && dbData[0] instanceof Model)) throw new InstanceNotFoundError(`Instance uuid ${this.uuid} not found`);
-            this._databaseInstance = dbData[0];
-            return;
+            const dbData = await (this.constructor as typeof TableClass).get_Model().findByPk(this.uuid);
+            if (!(dbData && dbData instanceof Model)) throw new InstanceNotFoundError(`Instance uuid ${this.uuid} not found`);
+            this._databaseInstance = dbData;
+            return this;
         }
         const ParentClass = (this.constructor as typeof TableClass);
         if (ParentClass.hasIdentifier()) {
@@ -256,14 +271,14 @@ export abstract class TableClass {
             identifierFields.forEach((field: string) => {
                 // checking the type of that field
                 const fieldValue: unknown = (this as any)[field];
-                if (!fieldValue) {
+                if (typeof(fieldValue) === 'undefined') {
                     // if value is inexistant, look for an empty value
                     identifierValue[field] = null; // (null != unknown for the where close)
                     return; // go to next field
                 }; 
                 if (fieldValue instanceof TableClass) {
                     // in case of a nested tableclass, forward it's database instance to the identifier value
-                    identifierValue[field] = (fieldValue as TableClass)._databaseInstance.get('uuid');
+                    identifierValue[field] = fieldValue._databaseInstance.get('uuid');
                 }
                 else {
                     // in other cases forward the value dirrectly
@@ -272,20 +287,17 @@ export abstract class TableClass {
             });
             // trying to look up the instance
             const whereClose: any = {where: identifierValue};
-            const dbData = syncUp(ParentClass.get_Model().findOne(whereClose));
+            const dbData = await ParentClass.get_Model().findOne(whereClose);
             // check if the instance has been found
-            if (!(Array.isArray(dbData) && dbData.length > 0 && dbData[0] instanceof Model)) {
-                // if not found create a new database entry for this instance
-                this.newBuild();
-                return;
+            if (dbData) {
+                // building from the found db entry
+                this._databaseInstance = dbData;
+                return this;
             }
-            // building from the found db entry
-            this._databaseInstance = dbData[0];
-            return;
+            // if not found create a new database entry for this instance
+            await this.newBuild();
         }
-        // if neither UUID, Identifier, or passed database instance is present, built a new instance  
-        this.newBuild();
-        return;
+        return this;
     }
 
     // 
@@ -293,7 +305,7 @@ export abstract class TableClass {
      * Method to build a new instance in database acording to the data on the instance
      * @returns 
      */
-    private newBuild(): void {
+    private async newBuild(): Promise<void> {
         const ParentClass = (this.constructor as typeof TableClass);
         const thisFields: {[index:string]: any} = {};
         const expectedFields: string[] = Object.keys(ParentClass.fields);
@@ -301,20 +313,20 @@ export abstract class TableClass {
             const fieldVal = (this as any)[field];
             if (fieldVal && fieldVal instanceof TableClass) {
                 thisFields[field] = fieldVal._databaseInstance.get('uuid');
-                this[`_cached_association_${field}`] = fieldVal;
+                this._cached_associations.set(field, fieldVal);
             }
             else if (fieldVal) {
                 thisFields[field] = fieldVal;
             }
             else {
-                thisFields[field] = null;
+                thisFields[field] = null; // null != undefinied, undefined will used default value
             }
         });
         // building the instance is done synchronously for the programm runtime
         this._databaseInstance = ParentClass.get_Model().build(thisFields);
-        // saving it asynchronously, due to that before building the uniqueness of the constraint needs to be checked
-        // (done in the more general build method)
-        this._databaseInstance.save();
+        // saving it asynchronously, due to that before building, the uniqueness of the constraint needs to be checked
+        // uniqueness has already need checked in the method calling 'build' this one
+        await this._databaseInstance.save();
         return;
     }
     
@@ -336,8 +348,9 @@ export abstract class TableClass {
      * For database lookup lock a new instance, set all the properties of a uniqueness
      * constraint and then unlock the instance to fetch the database data
      */
-    public lock():void {
+    public lock() {
         this._lockedState = true;
+        return this;
     }
 
     /**
@@ -356,11 +369,12 @@ export abstract class TableClass {
      * for a build of this instance if the database instance hasn't been built yet
      * or prompts for a save to database 
      */
-    public unlock():void {
+    public async unlock() {
         this._lockedState = false;
-        if (!this._databaseInstance) this.build();
+        if (!this._databaseInstance) await this.build();
         // the save can be done asynchronously as the data is correct at runtime
-        else this._databaseInstance.save();
+        else await this._databaseInstance.save();
+        return this;
     }
 
     /**
@@ -371,29 +385,24 @@ export abstract class TableClass {
         return this._lockedState;
     }
 
-    /**
-     * These fields contain the values that we might be using for a lookup
-     * in the database during the build process
-     */
-    [index:`_prebuild_${string}`]: unknown;
-
-    /**
-     * Cached instances of the associated TableClasses
-     * They get cached once they are called and looked up for the first time
-     */
-    [index:`_cached_association_${string}`]: TableClass | null;
+    public destroy() {
+        return this._databaseInstance.destroy();
+    }
 
     /**
      * The UUID generated by sequelize for an instance
      */
-    get uuid() : string | null {
+    get uuid() : string | undefined {
         if (this._databaseInstance)
             return this._databaseInstance.get('uuid') as string;
-        if (this._prebuild_uuid)
-            return this._prebuild_uuid as string;
-        return null;
+        if (this._prebuild.get('uuid'))
+            return this._prebuild.get('uuid') as string;
+        return;
     }
-
+    set uuid(val: string | undefined) {
+        if (this.isLocked()) this._prebuild.set('uuid', val);
+        else this._databaseInstance.set('uuid', val).save();
+    }
 
     /******************************
      * Assertion checks for proper implementation of the class

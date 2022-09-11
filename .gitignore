@@ -109,3 +109,7 @@ dist
 # the config file
 config.json
 config.test.json
+
+# key and certificate files
+*.key
+*.crt
