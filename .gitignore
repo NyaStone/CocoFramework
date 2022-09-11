@@ -102,3 +102,14 @@ dist
 
 # TernJS port file
 .tern-port
+
+# All compiled js files
+*.js
+
+# the config file
+config.json
+config.test.json
+
+# key and certificate files
+*.key
+*.crt
