@@ -4,6 +4,7 @@ import { Punishment } from "../../../assets/Punishment.class";
 import { Warning } from "../../../assets/Warning.class";
 import { UsageError } from "../../errors/UsageError.class";
 import { NoFurtherPunishmentHelp } from "../../views/warnings/NoFurtherPunishmentHelp.class";
+import { UserNotModeratable } from "../../views/warnings/UserNotModeratable.class";
 import { UserWarned } from "../../views/warnings/UserWarned.class";
 import { AbstractCommand } from "../AbstractCommand.class";
 import { AbstractArgument } from "../arguments/abstract/AbstractArgument.class";
@@ -18,7 +19,7 @@ export class Warn extends AbstractCommand {
         new StringArgument('reason', 'Reason for the warning, will be used as reasp, for the timeout.', 
                             false, true, 15, 128)
     ];
-    static defaultMemberPermissions: PermissionResolvable = new PermissionsBitField(PermissionsBitField.Flags.Administrator);
+    static defaultMemberPermissions: PermissionResolvable = new PermissionsBitField(PermissionsBitField.Flags.ModerateMembers);
     static dmCompatible: boolean = false;
 
     public async run() {
@@ -26,13 +27,17 @@ export class Warn extends AbstractCommand {
         const user = this.getUserArgument('user');
         const reason = this.getStringArgument('reason');
         if (!guild || !user || !reason) throw new UsageError('At least one missing argument');
+        const member: GuildMember = await guild.members.fetch(user);
+        if (!member.moderatable) {
+            await this.hiddenReply(new UserNotModeratable(user));
+            return this;
+        }
         const warning = await Warning.construct(guild.id, user.id, reason)
         .catch(async error => {
             if (error instanceof NoFurtherPunishmentError) await this.hiddenReply(new NoFurtherPunishmentHelp()); 
             else throw error;
         });
         if (warning) {
-            const member: GuildMember = await guild.members.fetch(user);
             const punishment: Punishment = await warning.punishment.unlock();
             await member.timeout(punishment.timeoutDuration, reason);
             this.reply(new UserWarned(user,
