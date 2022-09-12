@@ -11,7 +11,7 @@ export function durationStringify(duration:number):string {
     if (hours > 1) res += `${bold(`${hours}`)} Hours\n`;
     else if (hours === 1) res += `${bold('1')} Hour\n`;
     if (minutes > 1) res += `${bold(`${minutes}`)} Minutes\n`;
-    else if (days === 1) res += `${bold('1')} Day\n`;
+    else if (minutes === 1) res += `${bold('1')} Day\n`;
     
     return res;
 }
