@@ -39,7 +39,7 @@ export class Warn extends AbstractCommand {
         });
         if (warning) {
             const punishment: Punishment = await warning.punishment.unlock();
-            await member.timeout(punishment.timeoutDuration, reason);
+            await member.timeout(punishment.timeoutDuration * 60000, reason);
             this.reply(new UserWarned(user,
                 punishment,
                 await Warning.count(guild.id, user.id),
