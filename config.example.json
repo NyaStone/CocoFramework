@@ -10,7 +10,7 @@
         "port": "PUT THE PORT THE DATABASE SERVER IS HOSTED ON HERE"
     },
     "website": {
-        "url": "WEBSITE URL",
+        "domain": "WEBSITE URL",
         "port": 433,
         "keyPath": "PUT THE PATH TO THE TSL KEY",
         "certPath": "PUT THE PATH TO THE TSL CERTIFICATE"
