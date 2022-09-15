@@ -24,10 +24,10 @@ jobs:
       
       - name: build process
         run: |
-          sudo systemctl stop coconutbot.service
+          systemctl stop coconutbot.service
           git pull
           npm install
           npx tsc
-          sudo systemctl start coconutbot.service
+          systemctl start coconutbot.service
           
           
