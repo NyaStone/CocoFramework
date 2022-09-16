@@ -4,7 +4,7 @@ SCRIPT=$(readlink -f "$0")
 # Absolute path this script is in, thus /home/user/bin
 SCRIPTPATH=$(dirname "$SCRIPT")
 
-cd SCRIPTPATH
+cd $SCRIPTPATH
 sudo systemctl stop coconutbot.service
 git pull
 npm install
