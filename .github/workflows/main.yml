@@ -29,4 +29,6 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.KEY }}
           port: ${{ secrets.PORT }}
-          script: ~/CocoFramework/redeploy.sh
+          script: |
+            whoami
+            sudo ~/CocoFramework/redeploy.sh
