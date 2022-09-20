@@ -4,7 +4,7 @@ import { WebClient } from "./web/WebClient.class";
 Database.init(__dirname);
 Database.get_instance().sync()
 .then(() => {
-    const website = new WebClient();
+    const website = WebClient.construct();
     website.start();
     const bot = new BotClient();
     bot.login();
