@@ -2,11 +2,34 @@ import { AbstractDecoratedRouter } from "../AbstractDecoratedRouter.class";
 import { WebClient } from "../WebClient.class";
 import path from 'path';
 import fs, { Dirent } from 'fs';
+import https from 'https'
+const fetch = require('node-fetch');
+
+type RandomImageAPIResponse = {
+    name: string,
+    url: string,
+}
 
 export class RandomImageAPI extends AbstractDecoratedRouter {
-    name: string = 'randomImage';
 
+    static routeName: string = 'randomImage';
 
+    public static resolveRequestURL(folder: string, exclude?: string): string {
+        let res: string = `${this.resolveURL()}/${folder}`;
+        if (exclude) res += `?exclude=${exclude}`;
+        return res
+    }
+
+    public static async fetch(folder: string, exclude?: string): Promise<RandomImageAPIResponse> {
+        const agent = new https.Agent({
+            rejectUnauthorized: false,
+          });
+        const apiResonse = await fetch(this.resolveRequestURL(folder, exclude), {agent})
+        .then((res: any) => {
+            return res.json() as RandomImageAPIResponse;
+        });
+        return apiResonse;
+    }
 
     routing(): void {
         this.get('/:folder', (req, res) => {
@@ -42,5 +65,4 @@ export class RandomImageAPI extends AbstractDecoratedRouter {
 
         })
     }
-    
 }
