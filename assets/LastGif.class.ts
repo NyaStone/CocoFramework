@@ -6,7 +6,7 @@ export class LastGif extends TableClass {
     static fields: { [index: string]: typeof TableClass | DataType; } = {
         channelId: DataTypes.STRING(20),
         action: DataTypes.STRING(15),
-        name: DataTypes.STRING(50)
+        name: DataTypes.STRING(100)
     };
 
     static identifier: string[] = [
