@@ -17,7 +17,7 @@ export class Warn extends AbstractCommand {
     static commandArguments: AbstractArgument[] = [
         new UserArgument('user', 'User to send to horny jail.', true),
         new StringArgument('reason', 'Reason for the warning, will be used as reasp, for the timeout.', 
-                            false, true, 15, 128)
+                            false, true, undefined, 15, 128)
     ];
     static defaultMemberPermissions: PermissionResolvable = new PermissionsBitField(PermissionsBitField.Flags.ModerateMembers);
     static dmCompatible: boolean = false;
