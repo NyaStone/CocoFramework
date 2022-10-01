@@ -19,8 +19,10 @@ export class Interract extends AbstractCommand {
             new ArgumentChoice<string>('kiss', 'kiss'),
             new ArgumentChoice<string>('lick', 'lick'),
             new ArgumentChoice<string>('pat', 'pat'),
+            new ArgumentChoice<string>('sleep', 'sleep'),
             new ArgumentChoice<string>('stare', 'stare'),
-            new ArgumentChoice<string>('vibe', 'vibe')
+            new ArgumentChoice<string>('vibe', 'vibe'),
+            new ArgumentChoice<string>('yeet', 'yeet')
         ]),
         new UserArgument('target', 'Whom you want to interract with.', false)
     ];
