@@ -223,6 +223,10 @@ export abstract class AbstractCommand {
         return this.interaction.guild;
     }
 
+    public get author(): User {
+        return this.interaction.user;
+    }
+
     public getAttachmentArgument(argumentName: string) {
         return this._attachmentCache.get(argumentName);
     }
