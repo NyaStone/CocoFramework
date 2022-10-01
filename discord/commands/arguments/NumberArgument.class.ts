@@ -2,6 +2,7 @@ import { Locale } from "discord-api-types/v9";
 import { ApplicationCommandOptionType } from "discord.js";
 import { AbstractCommand } from "../AbstractCommand.class";
 import { AbstractTextArgument } from "./abstract/AbstractTextArgument.class";
+import { ArgumentChoice } from "./choices/ArgumentChoice.class";
 
 export class NumberArgument extends AbstractTextArgument<number> {
     public readonly minValue: number;
@@ -11,6 +12,7 @@ export class NumberArgument extends AbstractTextArgument<number> {
                 description: string, 
                 autocomplete?: boolean,
                 required?: boolean,
+                choices?: ArgumentChoice<number>[],
                 minValue?: number,
                 maxValue?: number,
                 validationCallback?: (value: number | null, argumentName: string, context: AbstractCommand) => Promise<boolean>,
@@ -22,6 +24,7 @@ export class NumberArgument extends AbstractTextArgument<number> {
             description,
             autocomplete,
             required,
+            choices,
             validationCallback,
             validationHelp,
             filterCallback,

@@ -9,6 +9,7 @@ async function recursiveClean(dirPath: string): Promise<void> {
         const contentStats = await fs.lstat(localPath); 
         if (contentStats.isFile() &&
             (   localPath.endsWith('.command.js') || 
+                localPath.endsWith('.router.js') ||
                 localPath.endsWith('.class.js') ||
                 localPath.endsWith('.funct.js') )) {
                 promises.push(fs.rm(localPath).then(() => console.log(`Deleted : ${localPath}`)));

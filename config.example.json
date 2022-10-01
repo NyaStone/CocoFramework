@@ -11,7 +11,7 @@
     },
     "website": {
         "domain": "WEBSITE URL",
-        "port": 433,
+        "port": 443,
         "keyPath": "PUT THE PATH TO THE TSL KEY",
         "certPath": "PUT THE PATH TO THE TSL CERTIFICATE"
     }
