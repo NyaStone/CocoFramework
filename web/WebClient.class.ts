@@ -50,7 +50,7 @@ export class WebClient {
                 // instantiate the router
                 const decoratedRouter = new ImportedRouter();
                 // Bind the router to express
-                this._expressClient.use(`/${decoratedRouter.name}`, decoratedRouter.getRouter());
+                this._expressClient.use(`/${ImportedRouter.routeName}`, decoratedRouter.getRouter());
             }
         });
     }

@@ -1,10 +1,16 @@
 import express, { RequestHandler, Router } from 'express';
+import { WebClient } from './WebClient.class';
 
 export abstract class AbstractDecoratedRouter {
     private _route: Router;
 
 
-    abstract name: string;
+    static routeName: string;
+
+
+    public static resolveURL() {
+        return `${WebClient.resolveURL()}/${this.routeName}`;
+    }
 
     constructor() {
         this._route = express.Router();
