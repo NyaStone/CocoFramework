@@ -14,7 +14,7 @@ export class InteractionView extends AbstractSuccessView {
         ['sleep', {singular: 'is being told to go to sleep', plural: 'are being told to go to sleep'}],
         ['stare', {singular: 'is gettng stared at', plural: 'are getting stared at'}],
         ['vibe', {singular: 'is being told it\'s time to dance', plural: 'are being told it\'s time to dance'}],
-        ['hug', {singular: 'is getting yeeted away', plural: 'are getting yeeted away'}]
+        ['yeet', {singular: 'is getting yeeted away', plural: 'are getting yeeted away'}]
     ]);
 
     constructor(action: string, url: string, user: User, targets: User[], flavorText?: string) {
