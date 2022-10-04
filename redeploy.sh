@@ -8,6 +8,9 @@ cd $SCRIPTPATH
 sudo systemctl stop coconutbot.service
 git pull
 npm install
+if [ -f "./clean.js" ]; then
+    node ./clean.js
+fi
 npx tsc
 sudo systemctl start coconutbot.service
 
