@@ -1,6 +1,6 @@
 import { Snowflake } from "discord.js";
 import { DataType, DataTypes } from "sequelize";
-import { TableClass } from "../database/TableClass.class";
+import { TableClass } from "../../database/TableClass.class";
 
 export class LastGif extends TableClass {
     static fields: { [index: string]: typeof TableClass | DataType; } = {
