@@ -1,5 +1,5 @@
 import { User } from "discord.js";
-import { LastGif } from "../../../assets/LastGif.class";
+import { LastGif } from "../../../assets/interactions/LastGif.class";
 import { RandomImageAPI } from "../../../web/routers/RandomImageAPI.router";
 import { UsageError } from "../../errors/UsageError.class";
 import { InteractionView } from "../../views/InteractionView.class";
@@ -70,6 +70,7 @@ export class Interact extends AbstractCommand {
         lastGif.name = randomImageAPIResponse.name;
         const imageURL: string = randomImageAPIResponse.url;
         const response: InteractionView = new InteractionView(action, imageURL, this.interaction.user, this.getTargets(), flavor); 
+        await response.generateFooter();
         await this.reply(response);
         return this;
     }
