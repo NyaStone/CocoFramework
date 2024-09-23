@@ -42,7 +42,7 @@ export class Warn extends AbstractCommand {
             await member.timeout(punishment.timeoutDuration * 60000, reason);
             this.reply(new UserWarned(user,
                 punishment,
-                await Warning.count(guild.id, user.id),
+                await punishment.count(),
                 reason));
         }
         return this;

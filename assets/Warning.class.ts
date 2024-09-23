@@ -1,10 +1,11 @@
-import { Snowflake } from "discord.js";
+import { Snowflake, time } from "discord.js";
 import { DataType, DataTypes, Model } from "sequelize";
 import { ConcurencyError } from "../database/Errors/ConcurencyError.class";
 import { TableClass } from "../database/TableClass.class";
 import { NoFurtherPunishmentError } from "./errors/warnings/NoFurtherPunishmentError.class";
 import { Punishment } from "./Punishment.class";
 import { PunishmentFactory } from "./PunishmentFactory.class";
+import { GuildSettings } from "./GuildSettings.class";
 
 export class Warning extends TableClass {
     static fields: { [index: string]: typeof TableClass | DataType; } = {
@@ -29,9 +30,24 @@ export class Warning extends TableClass {
         res.date = Date.now();
         res.reason = reason;
         const lastWarning = await this.getLast(guildId, userId);
+        let lastPunishment: Punishment | null = null;
+        const guildSettings = await GuildSettings.get(guildId);
+        let timeSinceLast = 0
         if (lastWarning) {
-            if (!lastWarning.punishment) throw new ConcurencyError('the punishment should never be null');
-            const lastPunishment = await lastWarning.punishment.unlock();
+            lastPunishment = await lastWarning.punishment.unlock()
+            timeSinceLast = res.date - lastWarning.date
+            console.log(timeSinceLast, guildSettings.pardonTime * 60000)
+            if (guildSettings.pardonTime) {
+                while (lastPunishment && timeSinceLast > (guildSettings.pardonTime * 60000)) {
+                    timeSinceLast -= guildSettings.pardonTime * 60000
+                    if (lastPunishment.previousPunishment)
+                        lastPunishment = await lastPunishment.previousPunishment.unlock()
+                    else lastPunishment = null
+                }
+            }
+        }
+        console.log(lastPunishment)
+        if (lastPunishment) {
             if (!lastPunishment.nextPunishment) throw new NoFurtherPunishmentError();
             res.punishment = await lastPunishment.nextPunishment.unlock();
         }

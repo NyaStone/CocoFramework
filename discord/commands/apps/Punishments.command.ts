@@ -9,6 +9,8 @@ import { AbstractCommand } from "../AbstractCommand.class";
 import { AbstractArgument } from "../arguments/abstract/AbstractArgument.class";
 import { IntegerArgument } from "../arguments/IntegerArgument.class";
 import { SubcommandArgument } from "../arguments/SubcommandArgument.class";
+import { GuildSettings } from "../../../assets/GuildSettings.class";
+import { PardonTimerEdited } from "../../views/punishments/PardonTimerEdited.class";
 
 async function punishmentIndexValidation(val: number | null, argName: string, context: AbstractCommand): Promise<boolean> {
     if (!context.guild) return false;
@@ -64,7 +66,21 @@ export class Punishments extends AbstractCommand {
                                 false, false, undefined,
                                 0)
             ], timeValidation, `At least one one of [${bold('minutes')}, ${bold('hours')}, ${bold('days')}] must be defined`),
-        new SubcommandArgument('pop', 'Removes the last punishment tier')
+        new SubcommandArgument('pop', 'Removes the last punishment tier'),
+        new SubcommandArgument('pardontimer', 'Sets a pardon timer for warnings, set to 0 to disable', undefined, [
+            new IntegerArgument('minutes', 
+                'Number of minutes to be pardoned.',
+                false, false, undefined,
+                0, 59),
+            new IntegerArgument('hours', 
+                'Number of hours to be pardoned.',
+                false, false, undefined,
+                0, 23),
+            new IntegerArgument('days', 
+                'Number of days to be pardoned.',
+                false, false, undefined,
+                0)
+        ], timeValidation, `At least one one of [${bold('minutes')}, ${bold('hours')}, ${bold('days')}] must be defined`)
     ];
 
     static defaultMemberPermissions: PermissionResolvable = new PermissionsBitField(PermissionsBitField.Flags.Administrator);
@@ -132,6 +148,15 @@ export class Punishments extends AbstractCommand {
             await this.reply(new PunishmentPopped(deletedIndex, deletedDuration));
         }
         return this;
+    }
+
+    public async run_pardontimer(): Promise<AbstractCommand> {
+        if (!this.guild) return this;
+        const guildSettings = await GuildSettings.get(this.guild.id);
+        const previousTime = guildSettings.pardonTime;
+        guildSettings.pardonTime = this.parseTime();
+        await this.reply(new PardonTimerEdited(previousTime, guildSettings.pardonTime));
+        return this;  
     }
 
 

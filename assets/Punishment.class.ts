@@ -55,6 +55,16 @@ export class Punishment extends TableClass {
         super();
     }
 
+    public async count(): Promise<number> {
+        let punishement: Punishment | undefined = this;
+        let count = 0;
+        while (punishement) {
+            count++;
+            punishement = await punishement.previousPunishment?.unlock()
+        }
+        return count;
+    }
+
     public async destroy(): Promise<void> {
         // keeping a reference of both previous and next punishments
         const prevPunish = this.previousPunishment;
